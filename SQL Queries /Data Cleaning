@@ -1,0 +1,16 @@
+# Updating date - May 28-29 to May 29 
+UPDATE dim_match_summary
+Set matchDate = 'May 29,2023'
+Where matchDate = 'May 28-29, 2023';
+
+# Changed Match_date data type to Date format
+UPDATE dim_match_summary
+SET matchDate = STR_TO_DATE(matchDate, '%M %d, %Y');
+
+# Changed to date data type 
+UPDATE dim_match_summary
+SET matchDate = CAST(matchDate as Date);
+
+# Changed Column name (Out/Not Out) to Out_Not_out
+ALTER TABLE fact_bating_summary
+RENAME COLUMN `out/not_out` to Out_Not_out;
