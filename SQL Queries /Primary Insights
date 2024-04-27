@@ -1,0 +1,131 @@
+## Top 10 batsmen based on past 3 years total runs scored.
+Select batsmanName, SUM(runs) as Total_runs
+From  fact_bating_summary 
+Group by 1
+Order by Total_runs DESC
+Limit 10;
+
+
+## Top 10 batsmen based on past 3 years batting average. (min 60 balls faced in each season)
+Select batsmanName,
+Round(SUM(runs)/SUM(case when Out_Not_out = "out" then 1 else 0 end),2) as Bat_avg
+From fact_bating_summary b 
+Inner Join dim_match_summary  m 
+On b.match_id = m.match_id
+Group By batsmanName
+Having SUM(case when year(matchDate) = 2021 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2022 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2023 then balls end) >=60
+Order by Bat_avg DESC
+Limit 10;  
+
+## Top 10 batsmen based on past 3 years strike rate (min 60 balls faced in each season) 
+Select batsmanName,
+Round((SUM(runs)/SUM(balls)),2)*100 as Strike_Rate
+From fact_bating_summary b 
+Inner Join dim_match_summary  m 
+On b.match_id = m.match_id
+Group By batsmanName
+Having SUM(case when year(matchDate) = 2021 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2022 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2023 then balls end) >=60
+Order by Strike_Rate DESC
+Limit 10;  
+
+
+## Top 10 bowlers based on past 3 years total wickets taken.
+Select bowlerName as Bowler,
+SUM(wickets) as Wickets
+From fact_bowling_summary
+Group By Bowler
+Order by Wickets DESC 
+Limit 10;
+
+
+## Top 10 bowlers based on past 3 years bowling average. (min 60 balls bowled in each season)
+Select bowlerName as Bowler,
+Round((sum(runs)/sum(wickets)),2) as Bowling_Avg
+from fact_bowling_summary b 
+Inner Join dim_match_summary m 
+on b.match_id = m.match_id 
+Group by Bowler
+Having SUM(case when year(matchDate) = 2021 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2022 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2023 then (overs)*6  end) >=60 
+Order By Bowling_Avg ASC  
+Limit 10;
+
+## Top 10 bowlers based on past 3 years economy rate. (min 60 balls bowled in each season)
+Select bowlerName as Bowler,
+Round((SUM(runs)/sum(overs)),2) as Economy_Rate
+from fact_bowling_summary b 
+Inner Join dim_match_summary m 
+on b.match_id = m.match_id 
+Group by Bowler
+Having SUM(case when year(matchDate) = 2021 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2022 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2023 then (overs)*6  end) >=60  
+Order By Economy_Rate ASC 
+Limit 10;
+
+## Top 5 batsmen based on past 3 years boundary % (fours and sixes).(min 60 balls bowled in each season)
+With CTE as (
+Select batsmanName, SUM(4s*4) as Total_4s ,SUM(6s*6) as Total_6s,SUM(runs) as Total_Runs
+From fact_bating_summary b 
+Inner Join dim_match_summary m 
+on b.match_id = m.match_id 
+Group by batsmanName
+Having SUM(case when year(matchDate) = 2021 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2022 then balls end) >=60 
+AND SUM(case when year(matchDate) = 2023 then balls end) >=60
+)
+Select batsmanName, Round(((Total_4s + Total_6s)/Total_Runs)*100,2) as Boundary_Pct
+From CTE
+Order By Boundary_Pct DESC
+Limit 5;
+
+## Top 5 bowlers based on past 3 years dot ball %.(min 60 balls bowled in each season)
+Select bowlerName as Bowler, Round(SUM(0s)/SUM(overs*6)*100,2) as Dot_Ball_Pct
+From fact_bowling_summary b 
+Inner join dim_match_summary m 
+on b.match_id = m.match_id 
+Group by Bowler
+Having SUM(case when year(matchDate) = 2021 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2022 then (overs)*6  end) >=60 
+AND SUM(case when year(matchDate) = 2023 then (overs)*6  end) >=60 
+Order By Dot_Ball_Pct DESC 
+Limit 5; 
+
+
+## Top 4 teams based on past 3 years winning %.
+WITH CTE as ( 
+Select team1 as Team ,winner  From dim_match_summary 
+union all 
+Select team2 as Team,winner  From dim_match_summary 
+) 
+Select Team,
+Round(count(case when Team = winner then 1 END)/COunt(*)*100,2) as Win_Pct
+From CTE 
+Group By Team
+Order By Win_Pct DESC
+Limit 4;
+
+## Top 2 teams with the highest number of wins achieved by chasing targets over the past 3 years.
+WITH CTE as ( 
+Select team1 as Team,winner From dim_match_summary 
+Where margin like "%wickets"
+Union All 
+Select team2 as Team,winner From dim_match_summary 
+Where margin like "%wickets"
+),
+CTE_2 as (
+Select Team, 
+Count( case when Team = winner Then 1 End ) as Total_Wins,
+dense_rank () over ( Order by Count( case when Team = winner Then 1 End ) DESC) as Ranking
+From CTE
+Group by Team
+Order By Total_Wins DESC
+)
+Select Team,Total_Wins,Ranking
+From CTE_2 
+Where Ranking <=2;
